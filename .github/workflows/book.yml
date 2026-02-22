@@ -1,0 +1,71 @@
+name: Book scheduled classes
+
+on:
+  schedule:
+    # 03:00 Amsterdam in summer (CEST, UTC+2). In winter (CET) this fires at 02:00 local.
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    env:
+      HUPPA_EMAIL: ${{ secrets.HUPPA_EMAIL }}
+      HUPPA_PASSWORD: ${{ secrets.HUPPA_PASSWORD }}
+      HUPPA_SUBDOMAIN: ${{ secrets.HUPPA_SUBDOMAIN }}
+      HUPPA_SCHEDULE: ${{ secrets.HUPPA_SCHEDULE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install huppa CLI
+        run: pip install .
+
+      - name: Book classes from schedule
+        run: |
+          set -uo pipefail
+
+          WINDOW=$(echo "$HUPPA_SCHEDULE" | jq -r '.booking_window_days')
+          TARGET_DATE=$(date -d "+${WINDOW} days" +%Y-%m-%d)
+          DAY=$(date -d "+${WINDOW} days" +%A | tr '[:upper:]' '[:lower:]')
+
+          echo "Target date: $TARGET_DATE ($DAY)"
+
+          ENTRIES=$(echo "$HUPPA_SCHEDULE" | jq -c --arg day "$DAY" '.schedule[$day][]?' 2>/dev/null)
+          if [ -z "$ENTRIES" ]; then
+            echo "No classes scheduled for $DAY."
+            exit 0
+          fi
+
+          AVAILABLE=$(huppa classes "$TARGET_DATE")
+
+          while IFS= read -r entry; do
+            NAME=$(echo "$entry" | jq -r '.name')
+            TIME=$(echo "$entry" | jq -r '.time')
+            echo "Looking for $NAME at $TIME on $TARGET_DATE..."
+
+            MATCH=$(echo "$AVAILABLE" | jq -r \
+              --arg name "$NAME" \
+              --arg prefix "$TARGET_DATE $TIME" \
+              '.[] | select(.name == $name and (.starts_at | startswith($prefix)) and .is_booked == false)
+               | "\(.organization_id) \(.id)"' \
+              | head -1)
+
+            if [ -z "$MATCH" ]; then
+              echo "  No bookable class found."
+              continue
+            fi
+
+            ORG_ID=$(echo "$MATCH" | awk '{print $1}')
+            OCC_ID=$(echo "$MATCH" | awk '{print $2}')
+            echo "  Booking (org=$ORG_ID, occ=$OCC_ID)..."
+            if huppa book "$ORG_ID" "$OCC_ID"; then
+              echo "  Booked!"
+            else
+              echo "  Booking failed, trying waitlist..."
+              huppa waitlist join "$ORG_ID" "$OCC_ID" && echo "  Joined waitlist!" || echo "  Waitlist failed too."
+            fi
+          done <<< "$ENTRIES"
