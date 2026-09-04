@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: Version increment
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Create tag and build package
+        env:
+          VERSION_BUMP: ${{ inputs.version_bump }}
+        run: python .github/scripts/release.py --bump "$VERSION_BUMP"
+
+      - name: Smoke-test wheel installation
+        run: |
+          set -euo pipefail
+          uv venv /tmp/huppa-release-venv
+          uv pip install --python /tmp/huppa-release-venv/bin/python dist/*.whl
+          /tmp/huppa-release-venv/bin/huppa version
+          /tmp/huppa-release-venv/bin/huppa --help
+
+      - name: Create checksum
+        run: sha256sum dist/* > dist/SHA256SUMS
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_TAG=$(git describe --tags --exact-match HEAD)
+          gh release create "$RELEASE_TAG" dist/* \
+            --title "Huppa CLI $RELEASE_TAG" \
+            --generate-notes
