@@ -10,15 +10,38 @@ A CLI tool and [MCP](https://modelcontextprotocol.io/) server for [Huppa](https:
 
 ## ⚙️ Installation
 
-**Prerequisites:** Python 3.11+, [uv](https://docs.astral.sh/uv/)
+**Prerequisites:** [uv](https://docs.astral.sh/uv/)
+
+The package is not published to a package registry yet. Install the latest
+source from GitHub as a global uv tool:
+
+```bash
+uv tool install git+https://github.com/maxzw/huppa-cli.git
+huppa --help
+```
+
+To work from a source checkout instead:
 
 ```bash
 git clone https://github.com/maxzw/huppa-cli.git
 cd huppa-cli
 uv sync
 
+# Install this checkout as the global `huppa` command
+make deploy
+
 # Run one-time interactive setup (stores credentials in OS keychain)
-uv run huppa auth setup
+huppa auth setup
+```
+
+Repository-local commands can also use `uv run huppa ...`. The global editable
+installation is refreshed with `make deploy` after changing the checkout.
+
+To upgrade or remove a global installation:
+
+```bash
+uv tool install --force git+https://github.com/maxzw/huppa-cli.git
+uv tool uninstall huppa-cli
 ```
 
 ### 🔑 Authentication
@@ -30,16 +53,16 @@ To find your subdomain, open your Huppa gym page URL and use the first part befo
 Example: `https://mygym.huppa.app/me` → subdomain is `mygym`
 
 ```bash
-uv run huppa auth setup   # interactive credential setup
-uv run huppa auth whoami  # show current authenticated user
-uv run huppa auth logout  # clear stored credentials
+huppa auth setup   # interactive credential setup
+huppa auth whoami  # show current authenticated user
+huppa auth logout  # clear stored credentials
 ```
 
 Profile-specific authentication:
 
 ```bash
-HUPPA_PROFILE=work-gym uv run huppa auth setup
-HUPPA_PROFILE=work-gym uv run huppa auth whoami
+HUPPA_PROFILE=work-gym huppa auth setup
+HUPPA_PROFILE=work-gym huppa auth whoami
 ```
 
 Environment-variable authentication:
@@ -48,7 +71,7 @@ Environment-variable authentication:
 HUPPA_EMAIL="you@example.com" \
 HUPPA_PASSWORD="your-password" \
 HUPPA_SUBDOMAIN="mygym" \
-uv run huppa classes 2026-03-08
+huppa classes 2026-03-08
 ```
 
 ## 🛠️ CLI Usage
@@ -57,30 +80,30 @@ All commands output structured JSON.
 
 ```bash
 # List classes for a date
-uv run huppa classes 2026-03-08
+huppa classes 2026-03-08
 
 # List classes for multiple dates
-uv run huppa classes 2026-03-08 2026-03-09
+huppa classes 2026-03-08 2026-03-09
 
 # Show upcoming bookings
-uv run huppa bookings
-uv run huppa bookings --filter past --per-page 10
+huppa bookings
+huppa bookings --filter past --per-page 10
 
 # Show memberships
-uv run huppa memberships
+huppa memberships
 
 # Book a class (use organization_id and occurrence_id from `huppa classes`)
-uv run huppa book <organization_id> <occurrence_id>
+huppa book <organization_id> <occurrence_id>
 
 # Cancel a booking
-uv run huppa cancel <organization_id> <occurrence_id>
+huppa cancel <organization_id> <occurrence_id>
 
 # Waitlist management
-uv run huppa waitlist join <organization_id> <occurrence_id>
-uv run huppa waitlist leave <organization_id> <occurrence_id>
+huppa waitlist join <organization_id> <occurrence_id>
+huppa waitlist leave <organization_id> <occurrence_id>
 
 # Show all available commands
-uv run huppa --help
+huppa --help
 ```
 
 ## 🤖 MCP Server
@@ -88,7 +111,7 @@ uv run huppa --help
 The CLI includes a built-in MCP server for AI assistants:
 
 ```bash
-uv run huppa mcp
+huppa mcp
 ```
 
 ### Connecting to Claude Desktop
