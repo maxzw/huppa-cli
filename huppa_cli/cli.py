@@ -6,7 +6,14 @@ from datetime import datetime
 import click
 from dotenv import load_dotenv
 from huppa_cli.client import HuppaClient, HuppaError
-from huppa_cli.credentials import clear_credentials, load_credentials, prompt_for_credentials, save_credentials
+from huppa_cli.credentials import (
+    clear_credentials,
+    keyring_backend_name,
+    load_credentials,
+    prompt_for_credentials,
+    save_credentials,
+)
+from huppa_cli.version import get_version
 
 load_dotenv()
 
@@ -41,6 +48,59 @@ def _handle_errors(func):
 @click.group()
 def cli():
     """Huppa CLI — browse, book, and manage gym classes."""
+
+
+@cli.command()
+def version():
+    """Show the installed Huppa CLI version."""
+    click.echo(f"huppa {get_version()}")
+
+
+@cli.command()
+@click.option("--json", "as_json", is_flag=True, help="Print status as JSON.")
+@_handle_errors
+def status(as_json):
+    """Show credential, keyring, and API connection status."""
+    profile = os.getenv("HUPPA_PROFILE", "default")
+    env_values = {
+        "email": os.getenv("HUPPA_EMAIL"),
+        "password": os.getenv("HUPPA_PASSWORD"),
+        "subdomain": os.getenv("HUPPA_SUBDOMAIN"),
+    }
+    use_environment = all(env_values.values())
+    try:
+        credentials = None if use_environment else load_credentials(profile=profile)
+    except RuntimeError as exc:
+        credentials = None
+        keyring_error = str(exc)
+    else:
+        keyring_error = None
+    use_keyring = not use_environment and credentials is not None
+    values = env_values if use_environment else (credentials or env_values)
+    source = "environment" if use_environment else "keyring" if use_keyring else "partial/missing"
+    result = {
+        "version": get_version(),
+        "profile": profile,
+        "email": values.get("email") or None,
+        "subdomain": values.get("subdomain") or None,
+        "password_configured": bool(values.get("password")),
+        "credential_source": source,
+        "keyring_backend": keyring_error or keyring_backend_name(),
+        "config_path": str(click.get_app_dir("huppa")),
+        "api": "not checked",
+    }
+    if values.get("email") and values.get("password") and values.get("subdomain"):
+        try:
+            _get_client()
+        except (HuppaError, RuntimeError) as exc:
+            result["api"] = f"error: {exc}"
+        else:
+            result["api"] = "reachable"
+    if as_json:
+        _json_output(result)
+        return
+    for key, value in result.items():
+        click.echo(f"{key}: {value}")
 
 
 # --- auth subgroup ---

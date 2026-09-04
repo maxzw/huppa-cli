@@ -10,6 +10,15 @@ def _username(profile: str, field: str) -> str:
     return f"{profile}:{field}"
 
 
+def keyring_backend_name() -> str:
+    """Return the configured keyring backend name without exposing credentials."""
+    try:
+        backend = keyring.get_keyring()
+    except (KeyringError, RuntimeError) as exc:
+        return f"unavailable ({exc})"
+    return f"{backend.__class__.__module__}.{backend.__class__.__name__}"
+
+
 def save_credentials(email: str, password: str, subdomain: str, profile: str = "default") -> None:
     """Save Huppa credentials to the OS keychain.
 

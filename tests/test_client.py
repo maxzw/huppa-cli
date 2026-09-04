@@ -62,3 +62,14 @@ def test_cancel_booking_returns_none_for_empty_or_non_json(monkeypatch):
 
     assert client.cancel_booking("org", "occ") is None
     assert client.cancel_booking("org", "occ") is None
+
+
+def test_from_profile_uses_subdomain(monkeypatch):
+    monkeypatch.setenv("HUPPA_EMAIL", "user@example.com")
+    monkeypatch.setenv("HUPPA_PASSWORD", "secret")
+    monkeypatch.setenv("HUPPA_SUBDOMAIN", "mygym")
+    monkeypatch.setattr(HuppaClient, "_login", lambda self: None)
+
+    client = HuppaClient.from_profile()
+
+    assert client._subdomain == "mygym"

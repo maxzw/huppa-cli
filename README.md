@@ -58,6 +58,17 @@ huppa auth whoami  # show current authenticated user
 huppa auth logout  # clear stored credentials
 ```
 
+Check the installed version and troubleshoot credential or API configuration:
+
+```bash
+huppa version
+huppa status
+huppa status --json
+```
+
+Status output shows credential sources and whether the API is reachable. Passwords
+are never printed.
+
 Profile-specific authentication:
 
 ```bash

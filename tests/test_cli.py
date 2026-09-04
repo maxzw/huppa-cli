@@ -129,3 +129,58 @@ def test_help(runner):
     assert "bookings" in result.output
     assert "mcp" in result.output
     assert "auth" in result.output
+
+
+def test_version(runner, monkeypatch):
+    monkeypatch.setattr("huppa_cli.cli.get_version", lambda: "1.2.3")
+
+    result = runner.invoke(cli, ["version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "huppa 1.2.3"
+
+
+def test_status_json_with_environment_credentials(runner, monkeypatch):
+    monkeypatch.setenv("HUPPA_EMAIL", "user@example.com")
+    monkeypatch.setenv("HUPPA_PASSWORD", "secret-password")
+    monkeypatch.setenv("HUPPA_SUBDOMAIN", "mygym")
+    monkeypatch.setattr("huppa_cli.cli._get_client", lambda: object())
+    monkeypatch.setattr("huppa_cli.cli.keyring_backend_name", lambda: "test.backend")
+
+    result = runner.invoke(cli, ["status", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["credential_source"] == "environment"
+    assert data["password_configured"] is True
+    assert data["api"] == "reachable"
+    assert "secret-password" not in result.output
+
+
+def test_status_reports_missing_credentials(runner, monkeypatch):
+    for name in ("HUPPA_EMAIL", "HUPPA_PASSWORD", "HUPPA_SUBDOMAIN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("huppa_cli.cli.load_credentials", lambda profile: None)
+    monkeypatch.setattr("huppa_cli.cli.keyring_backend_name", lambda: "test.backend")
+
+    result = runner.invoke(cli, ["status", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["credential_source"] == "partial/missing"
+    assert data["password_configured"] is False
+    assert data["api"] == "not checked"
+
+
+def test_status_reports_api_error(runner, monkeypatch):
+    monkeypatch.setenv("HUPPA_EMAIL", "user@example.com")
+    monkeypatch.setenv("HUPPA_PASSWORD", "secret-password")
+    monkeypatch.setenv("HUPPA_SUBDOMAIN", "mygym")
+    monkeypatch.setattr("huppa_cli.cli._get_client", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr("huppa_cli.cli.keyring_backend_name", lambda: "test.backend")
+
+    result = runner.invoke(cli, ["status", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["api"] == "error: offline"
