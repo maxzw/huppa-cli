@@ -33,11 +33,14 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/huppa_cli"]
+
 [tool.ruff]
 line-length = 120
 
 [tool.mypy]
 python_version = "3.11"
-files = ["huppa_cli"]
+files = ["src/huppa_cli"]
 ignore_missing_imports = true
 warn_unused_ignores = true
