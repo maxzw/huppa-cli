@@ -10,7 +10,7 @@ A CLI tool and [MCP](https://modelcontextprotocol.io/) server for [Huppa](https:
 
 ## ⚙️ Installation
 
-**Prerequisites:** [uv](https://docs.astral.sh/uv/) and the [GitHub CLI](https://cli.github.com/)
+**Prerequisites:** [uv](https://docs.astral.sh/uv/), [just](https://github.com/casey/just), and the [GitHub CLI](https://cli.github.com/)
 
 ### User installation
 
@@ -49,7 +49,7 @@ cd huppa-cli
 uv sync
 
 # Install this checkout as the global `huppa` command
-make deploy
+just deploy
 
 # Run one-time interactive setup (stores credentials in OS keychain)
 huppa auth setup

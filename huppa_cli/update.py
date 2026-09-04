@@ -99,11 +99,11 @@ def update(*, check_only: bool = False, force: bool = False, output=print) -> bo
         output(f"Update available: {tag}")
         return False
     if _is_editable_install():
-        raise UpdateError("This is an editable installation. Run 'make deploy' to update it from the checkout.")
+        raise UpdateError("This is an editable installation. Run 'just deploy' to update it from the checkout.")
 
     uv = shutil.which("uv")
     if not uv:
-        raise UpdateError("uv is not on PATH; install the update manually or run 'make deploy' in a checkout.")
+        raise UpdateError("uv is not on PATH; install the update manually or run 'just deploy' in a checkout.")
     asset = _wheel_asset(release)
     try:
         response = requests.get(
