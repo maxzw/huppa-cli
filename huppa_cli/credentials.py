@@ -4,6 +4,7 @@ import keyring
 from keyring.errors import KeyringError
 
 SERVICE_NAME = "huppa-cli"
+KEYRING_ERRORS = (KeyringError, OSError)
 
 
 def _username(profile: str, field: str) -> str:
@@ -14,9 +15,14 @@ def keyring_backend_name() -> str:
     """Return the configured keyring backend name without exposing credentials."""
     try:
         backend = keyring.get_keyring()
-    except (KeyringError, RuntimeError) as exc:
+    except (*KEYRING_ERRORS, RuntimeError) as exc:
         return f"unavailable ({exc})"
     return f"{backend.__class__.__module__}.{backend.__class__.__name__}"
+
+
+def mask_secret(value: str | None) -> str:
+    """Return a fixed safe representation of a configured secret."""
+    return "********" if value else "<not set>"
 
 
 def save_credentials(email: str, password: str, subdomain: str, profile: str = "default") -> None:
@@ -31,11 +37,29 @@ def save_credentials(email: str, password: str, subdomain: str, profile: str = "
     Raises:
         RuntimeError: If keychain storage fails.
     """
+    values = {"email": email, "password": password, "subdomain": subdomain}
+    if not all(values.values()):
+        raise RuntimeError("Email, password, and subdomain are all required")
+
+    previous: dict[str, str | None] = {}
+    attempted: list[str] = []
     try:
-        keyring.set_password(SERVICE_NAME, _username(profile, "email"), email)
-        keyring.set_password(SERVICE_NAME, _username(profile, "password"), password)
-        keyring.set_password(SERVICE_NAME, _username(profile, "subdomain"), subdomain)
-    except KeyringError as exc:
+        for field in values:
+            previous[field] = keyring.get_password(SERVICE_NAME, _username(profile, field))
+        for field, value in values.items():
+            attempted.append(field)
+            keyring.set_password(SERVICE_NAME, _username(profile, field), value)
+    except KEYRING_ERRORS as exc:
+        for field in attempted:
+            username = _username(profile, field)
+            try:
+                old_value = previous[field]
+                if old_value is None:
+                    keyring.delete_password(SERVICE_NAME, username)
+                else:
+                    keyring.set_password(SERVICE_NAME, username, old_value)
+            except KEYRING_ERRORS:
+                pass
         raise RuntimeError(f"Failed to save credentials to keychain: {exc}") from exc
 
 
@@ -55,7 +79,7 @@ def load_credentials(profile: str = "default") -> dict[str, str] | None:
         email = keyring.get_password(SERVICE_NAME, _username(profile, "email"))
         password = keyring.get_password(SERVICE_NAME, _username(profile, "password"))
         subdomain = keyring.get_password(SERVICE_NAME, _username(profile, "subdomain"))
-    except KeyringError as exc:
+    except KEYRING_ERRORS as exc:
         raise RuntimeError(f"Failed to read credentials from keychain: {exc}") from exc
 
     if email and password and subdomain:
@@ -72,13 +96,16 @@ def clear_credentials(profile: str = "default") -> None:
     Raises:
         RuntimeError: If keychain deletion fails unexpectedly.
     """
-    try:
-        for field in ("email", "password", "subdomain"):
+    errors = []
+    for field in ("email", "password", "subdomain"):
+        try:
             keyring.delete_password(SERVICE_NAME, _username(profile, field))
-    except keyring.errors.PasswordDeleteError:
-        pass
-    except KeyringError as exc:
-        raise RuntimeError(f"Failed to clear credentials from keychain: {exc}") from exc
+        except keyring.errors.PasswordDeleteError:
+            pass
+        except KEYRING_ERRORS as exc:
+            errors.append(exc)
+    if errors:
+        raise RuntimeError(f"Failed to clear credentials from keychain: {errors[0]}") from errors[0]
 
 
 def prompt_for_credentials() -> dict[str, str]:

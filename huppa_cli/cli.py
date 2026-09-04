@@ -10,6 +10,7 @@ from huppa_cli.credentials import (
     clear_credentials,
     keyring_backend_name,
     load_credentials,
+    mask_secret,
     prompt_for_credentials,
     save_credentials,
 )
@@ -83,6 +84,7 @@ def status(as_json):
         "profile": profile,
         "email": values.get("email") or None,
         "subdomain": values.get("subdomain") or None,
+        "password": mask_secret(values.get("password")),
         "password_configured": bool(values.get("password")),
         "credential_source": source,
         "keyring_backend": keyring_error or keyring_backend_name(),
