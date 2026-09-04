@@ -49,14 +49,14 @@ def fake_client(monkeypatch):
 
 
 def test_classes_single_date(runner, fake_client):
-    result = runner.invoke(cli, ["classes", "2026-03-08"])
+    result = runner.invoke(cli, ["classes", "2026-03-08", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data == [{"date": "2026-03-08", "name": "Spin"}]
 
 
 def test_classes_multiple_dates(runner, fake_client):
-    result = runner.invoke(cli, ["classes", "2026-03-08", "2026-03-09"])
+    result = runner.invoke(cli, ["classes", "2026-03-08", "2026-03-09", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert "2026-03-08" in data
@@ -70,14 +70,14 @@ def test_classes_invalid_date(runner, fake_client):
 
 
 def test_bookings_default(runner, fake_client):
-    result = runner.invoke(cli, ["bookings"])
+    result = runner.invoke(cli, ["bookings", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data == [{"filter": "upcoming", "per_page": 50, "page": 1}]
 
 
 def test_bookings_with_filter(runner, fake_client):
-    result = runner.invoke(cli, ["bookings", "--filter", "past"])
+    result = runner.invoke(cli, ["bookings", "--filter", "past", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data[0]["filter"] == "past"
@@ -89,7 +89,7 @@ def test_bookings_invalid_filter(runner, fake_client):
 
 
 def test_memberships(runner, fake_client):
-    result = runner.invoke(cli, ["memberships"])
+    result = runner.invoke(cli, ["memberships", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data == [{"name": "Unlimited"}]

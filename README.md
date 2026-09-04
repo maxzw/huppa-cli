@@ -92,11 +92,13 @@ HUPPA_EMAIL="you@example.com" \
 HUPPA_PASSWORD="your-password" \
 HUPPA_SUBDOMAIN="mygym" \
 huppa classes 2026-03-08
+huppa classes 2026-03-08
+huppa classes 2026-03-08 2026-03-09
 ```
 
 ## 🛠️ CLI Usage
 
-All commands output structured JSON.
+Commands show Rich tables by default. Add `--json` for structured output.
 
 ```bash
 # List classes for a date
@@ -108,9 +110,11 @@ huppa classes 2026-03-08 2026-03-09
 # Show upcoming bookings
 huppa bookings
 huppa bookings --filter past --per-page 10
+huppa bookings --json
 
 # Show memberships
 huppa memberships
+huppa memberships --json
 
 # Book a class (use organization_id and occurrence_id from `huppa classes`)
 huppa book <organization_id> <occurrence_id>

@@ -1,10 +1,13 @@
 import functools
 import json
 import os
+import sys
 from datetime import datetime
 
 import click
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.table import Table
 from huppa_cli.client import HuppaClient, HuppaError
 from huppa_cli.credentials import (
     clear_credentials,
@@ -27,6 +30,60 @@ def _get_client() -> HuppaClient:
 
 def _json_output(data) -> None:
     click.echo(json.dumps(data, indent=2, default=str))
+
+
+def _rich_print(renderable) -> None:
+    Console(file=sys.stdout).print(renderable)
+
+
+def _status_table(result: dict) -> Table:
+    table = Table(title="Huppa status", show_lines=False, header_style="bold cyan")
+    table.add_column("Setting", style="bold")
+    table.add_column("Value")
+    for key, value in result.items():
+        style = "green" if key == "api" and value == "reachable" else "red" if key == "api" else None
+        table.add_row(key, str(value), style=style)
+    return table
+
+
+def _class_table(classes, title: str) -> Table:
+    table = Table(title=title, show_lines=False, header_style="bold cyan")
+    table.add_column("Time", style="bold", no_wrap=True)
+    table.add_column("Class", style="white")
+    table.add_column("Category", style="magenta")
+    table.add_column("Spaces", justify="right", style="green")
+    table.add_column("Status", style="yellow")
+    for item in classes:
+        status = "Booked" if item["is_booked"] else "Waitlist" if item["is_on_waitlist"] else "Open"
+        table.add_row(
+            item["starts_at"].split(" ", 1)[-1],
+            item["name"],
+            item["category"],
+            str(item["available_slots"]),
+            status,
+        )
+    return table
+
+
+def _booking_table(bookings) -> Table:
+    table = Table(title="Bookings", show_lines=False, header_style="bold cyan")
+    table.add_column("Date", style="bold", no_wrap=True)
+    table.add_column("Class")
+    table.add_column("Category", style="magenta")
+    table.add_column("Status", style="yellow")
+    for item in bookings:
+        table.add_row(item["starts_at"], item["name"], item["category"], item["booking_status"] or "Waitlist")
+    return table
+
+
+def _membership_table(memberships) -> Table:
+    table = Table(title="Memberships", show_lines=False, header_style="bold cyan")
+    table.add_column("Membership", style="bold")
+    table.add_column("Status", style="green")
+    table.add_column("Credits", justify="right")
+    for item in memberships:
+        table.add_row(item["name"], item["status"], f"{item['credits']}/{item['total_credits']}")
+    return table
 
 
 def _validate_date(date: str) -> None:
@@ -55,7 +112,7 @@ def cli():
 @cli.command()
 def version():
     """Show the installed Huppa CLI version."""
-    click.echo(f"huppa {get_version()}")
+    _rich_print(f"[bold cyan]huppa[/bold cyan] {get_version()}")
 
 
 @cli.command()
@@ -102,8 +159,7 @@ def status(as_json):
     if as_json:
         _json_output(result)
         return
-    for key, value in result.items():
-        click.echo(f"{key}: {value}")
+    _rich_print(_status_table(result))
 
 
 @cli.command("update")
@@ -144,7 +200,7 @@ def setup():
         subdomain=creds["subdomain"],
         profile=profile,
     )
-    click.echo(f"Saved credentials to keychain profile '{profile}'.")
+    _rich_print(f"[green]Saved credentials to keychain profile '{profile}'.[/green]")
 
 
 @auth.command()
@@ -152,7 +208,7 @@ def logout():
     """Clear stored credentials."""
     profile = os.getenv("HUPPA_PROFILE", "default")
     clear_credentials(profile=profile)
-    click.echo(f"Cleared credentials for profile '{profile}'.")
+    _rich_print(f"[yellow]Cleared credentials for profile '{profile}'.[/yellow]")
 
 
 @auth.command()
@@ -161,11 +217,14 @@ def whoami():
     profile = os.getenv("HUPPA_PROFILE", "default")
     creds = load_credentials(profile=profile)
     if not creds:
-        click.echo(f"No saved credentials found for profile '{profile}'.")
+        _rich_print(f"[yellow]No saved credentials found for profile '{profile}'.[/yellow]")
         raise SystemExit(1)
-    click.echo(f"Profile: {profile}")
-    click.echo(f"Email: {creds['email']}")
-    click.echo(f"Subdomain: {creds['subdomain']}")
+    table = Table(title=f"Profile · {profile}", show_lines=False, header_style="bold cyan")
+    table.add_column("Setting", style="bold")
+    table.add_column("Value")
+    table.add_row("Email", creds["email"])
+    table.add_row("Subdomain", creds["subdomain"])
+    _rich_print(table)
 
 
 # --- business commands ---
@@ -173,18 +232,26 @@ def whoami():
 
 @cli.command()
 @click.argument("dates", nargs=-1, required=True)
+@click.option("--json", "as_json", is_flag=True, help="Print structured JSON instead of a table.")
 @_handle_errors
-def classes(dates):
+def classes(dates, as_json):
     """List available gym classes for one or more dates (YYYY-MM-DD)."""
     for d in dates:
         _validate_date(d)
     client = _get_client()
     if len(dates) == 1:
         result = [c.model_dump() for c in client.get_classes(dates[0])]
+        if not as_json:
+            _rich_print(_class_table(result, f"Classes · {dates[0]}"))
+            return
     else:
         result = {}
         for d in dates:
             result[d] = [c.model_dump() for c in client.get_classes(d)]
+        if not as_json:
+            for d, items in result.items():
+                _rich_print(_class_table(items, f"Classes · {d}"))
+            return
     _json_output(result)
 
 
@@ -192,21 +259,23 @@ def classes(dates):
 @click.option("--filter", "booking_filter", type=click.Choice(["upcoming", "past"]), default="upcoming")
 @click.option("--per-page", default=50, type=int)
 @click.option("--page", default=1, type=int)
+@click.option("--json", "as_json", is_flag=True, help="Print structured JSON instead of a table.")
 @_handle_errors
-def bookings(booking_filter, per_page, page):
+def bookings(booking_filter, per_page, page, as_json):
     """List your bookings and waitlists."""
     client = _get_client()
     result = [b.model_dump() for b in client.get_my_bookings(filter=booking_filter, per_page=per_page, page=page)]
-    _json_output(result)
+    _json_output(result) if as_json else _rich_print(_booking_table(result))
 
 
 @cli.command()
+@click.option("--json", "as_json", is_flag=True, help="Print structured JSON instead of a table.")
 @_handle_errors
-def memberships():
+def memberships(as_json):
     """Show memberships, credit balances, and payment dates."""
     client = _get_client()
     result = [m.model_dump() for m in client.get_memberships()]
-    _json_output(result)
+    _json_output(result) if as_json else _rich_print(_membership_table(result))
 
 
 @cli.command()
