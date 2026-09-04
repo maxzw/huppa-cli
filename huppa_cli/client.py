@@ -179,7 +179,8 @@ class HuppaClient:
         """
         url = f"{BASE_URL}/users/me/occurrences"
         resp = self._request("GET", url, params={"date": date})
-        return [AvailableClass.model_validate(c) for c in resp.json().get("data", [])]
+        occurrences = resp.json().get("data", [])
+        return [AvailableClass.model_validate(c) for c in occurrences if c.get("type") == "occurrence"]
 
     def get_my_bookings(self, filter: str = "upcoming", per_page: int = 50, page: int = 1) -> list[Booking]:
         """Return the user's bookings and waitlists.
