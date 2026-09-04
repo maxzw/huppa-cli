@@ -4,6 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from huppa_cli.cli import cli
+from huppa_cli.update import UpdateError
 
 
 class _Dumpable:
@@ -184,3 +185,32 @@ def test_status_reports_api_error(runner, monkeypatch):
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["api"] == "error: offline"
+
+
+def test_update_check(runner, monkeypatch):
+    calls = {}
+
+    def fake_update(**kwargs):
+        calls.update(kwargs)
+        return False
+
+    monkeypatch.setattr("huppa_cli.cli.update_package", fake_update)
+
+    result = runner.invoke(cli, ["update", "--check"])
+
+    assert result.exit_code == 0
+    assert calls["check_only"] is True
+    assert calls["force"] is False
+    assert callable(calls["output"])
+
+
+def test_update_reports_failure(runner, monkeypatch):
+    def fail(**kwargs):
+        raise UpdateError("offline")
+
+    monkeypatch.setattr("huppa_cli.cli.update_package", fail)
+
+    result = runner.invoke(cli, ["update"])
+
+    assert result.exit_code != 0
+    assert "offline" in result.output

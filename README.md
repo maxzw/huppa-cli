@@ -44,6 +44,17 @@ uv tool install --force git+https://github.com/maxzw/huppa-cli.git
 uv tool uninstall huppa-cli
 ```
 
+For a release installed as a uv tool, check for and install updates with:
+
+```bash
+huppa update --check
+huppa update
+```
+
+The updater downloads the wheel from the latest GitHub Release and installs it
+through uv. Editable installations are not updated automatically; run `make
+deploy` from the checkout instead.
+
 ### 🔑 Authentication
 
 The setup command prompts for email/password/subdomain and stores them securely in your system keychain.

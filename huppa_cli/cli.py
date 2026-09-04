@@ -14,6 +14,7 @@ from huppa_cli.credentials import (
     prompt_for_credentials,
     save_credentials,
 )
+from huppa_cli.update import UpdateError, update as update_package
 from huppa_cli.version import get_version
 
 load_dotenv()
@@ -103,6 +104,21 @@ def status(as_json):
         return
     for key, value in result.items():
         click.echo(f"{key}: {value}")
+
+
+@cli.command("update")
+@click.option("--check", "check_only", is_flag=True, help="Only check for an update; do not install it.")
+@click.option("--force", is_flag=True, help="Reinstall the latest release even when already current.")
+def update_command(check_only, force):
+    """Check for and install the latest Huppa CLI release."""
+    try:
+        update_package(
+            check_only=check_only,
+            force=force,
+            output=click.echo,
+        )
+    except UpdateError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 # --- auth subgroup ---
