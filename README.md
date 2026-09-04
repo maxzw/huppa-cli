@@ -10,17 +10,38 @@ A CLI tool and [MCP](https://modelcontextprotocol.io/) server for [Huppa](https:
 
 ## ⚙️ Installation
 
-**Prerequisites:** [uv](https://docs.astral.sh/uv/)
+**Prerequisites:** [uv](https://docs.astral.sh/uv/) and the [GitHub CLI](https://cli.github.com/)
 
-The package is not published to a package registry yet. Install the latest
-source from GitHub as a global uv tool:
+### User installation
+
+Install the latest released wheel as a regular uv tool:
 
 ```bash
-uv tool install git+https://github.com/maxzw/huppa-cli.git
-huppa --help
+gh release download -R maxzw/huppa-cli -p '*.whl' -D /tmp/huppa-wheel
+uv tool install --force /tmp/huppa-wheel/*.whl
+huppa auth setup
 ```
 
-To work from a source checkout instead:
+Upgrade a user installation with:
+
+```bash
+huppa update
+```
+
+The updater downloads the wheel from the latest GitHub Release and installs it
+through uv.
+
+Check the installed version and troubleshoot credential or API configuration:
+
+```bash
+huppa version
+huppa status
+huppa status --json
+```
+
+### Development installation
+
+To work from a source checkout instead, use an editable installation:
 
 ```bash
 git clone https://github.com/maxzw/huppa-cli.git
@@ -34,26 +55,11 @@ make deploy
 huppa auth setup
 ```
 
-Repository-local commands can also use `uv run huppa ...`. The global editable
-installation is refreshed with `make deploy` after changing the checkout.
-
-To upgrade or remove a global installation:
+To remove a global installation:
 
 ```bash
-uv tool install --force git+https://github.com/maxzw/huppa-cli.git
 uv tool uninstall huppa-cli
 ```
-
-For a release installed as a uv tool, check for and install updates with:
-
-```bash
-huppa update --check
-huppa update
-```
-
-The updater downloads the wheel from the latest GitHub Release and installs it
-through uv. Editable installations are not updated automatically; run `make
-deploy` from the checkout instead.
 
 ### 🔑 Authentication
 
@@ -67,14 +73,6 @@ Example: `https://mygym.huppa.app/me` → subdomain is `mygym`
 huppa auth setup   # interactive credential setup
 huppa auth whoami  # show current authenticated user
 huppa auth logout  # clear stored credentials
-```
-
-Check the installed version and troubleshoot credential or API configuration:
-
-```bash
-huppa version
-huppa status
-huppa status --json
 ```
 
 Status output shows credential sources and whether the API is reachable. Passwords
