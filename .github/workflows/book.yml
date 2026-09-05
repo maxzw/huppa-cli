@@ -41,7 +41,7 @@ jobs:
             exit 0
           fi
 
-          AVAILABLE=$(huppa classes "$TARGET_DATE")
+          AVAILABLE=$(huppa classes "$TARGET_DATE" --json)
 
           while IFS= read -r entry; do
             NAME=$(echo "$entry" | jq -r '.name')
